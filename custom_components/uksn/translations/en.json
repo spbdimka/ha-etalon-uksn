@@ -20,7 +20,8 @@
     },
     "error": {
       "cannot_connect": "Cannot connect.",
-      "invalid_auth": "Invalid auth."
+      "invalid_auth": "Invalid auth.",
+	  "no_addresses": "No addresses found for this account"
     }
   }
 }

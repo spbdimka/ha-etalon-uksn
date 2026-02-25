@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import config_validation as cv
 
 from .api import UKSNClient, UKSNAuthError
 from .const import (
@@ -98,45 +99,55 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_select_addresses(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
-
+    
+        # Используем тот же client, что логинился (важно, если позже появятся токены)
+        client = self._client or UKSNClient(session=async_get_clientsession(self.hass))
+    
         try:
-            client = self._client or UKSNClient(session=async_get_clientsession(self.hass))
             addresses = await client.get_addresses(self._domain_id)
-        except Exception:
+        except Exception as err:
+            _LOGGER.exception("Failed to fetch addresses: %s", err)
             addresses = []
             errors["base"] = "cannot_connect"
-
+    
         options: dict[str, str] = {}
         for a in addresses:
             aid = a.get("address_id") or a.get("id")
             if aid is None:
                 continue
-            title = a.get("address_str") or a.get("address") or a.get("full_address") or f"Address {aid}"
+            title = (
+                a.get("full_name")
+                or a.get("address_str")
+                or a.get("address")
+                or a.get("full_address")
+                or f"Address {aid}"
+            )
             options[str(aid)] = str(title)
-
+    
+        if not options and not errors.get("base"):
+            # Чтобы не падало “unknown error” при пустом списке
+            errors["base"] = "no_addresses"
+    
         if user_input:
             selected = user_input.get(CONF_SELECTED_ADDRESSES, [])
             title = f"UKSN {self._phone}"
             data = {
                 CONF_PHONE: self._phone,
                 CONF_PASSWORD: self._password,
-                CONF_PROVIDER_ID: self._provider_id,
+                CONF_PROVIDER_ID: self._provider_id,  # можно оставить на будущее
                 CONF_DOMAIN_ID: self._domain_id,
                 CONF_BRAND_CODE: self._brand_code,
                 CONF_DEVICE_ID: self._device_id,
                 CONF_SELECTED_ADDRESSES: selected,
             }
             return self.async_create_entry(title=title, data=data)
-
+    
         schema = vol.Schema(
             {
-                vol.Required(CONF_SELECTED_ADDRESSES): vol.All(
-                    vol.Coerce(list),
-                    [vol.In(list(options.keys()))],
-                )
+                vol.Required(CONF_SELECTED_ADDRESSES): cv.multi_select(options)
             }
         )
-
+    
         description_placeholders = {"count": str(len(options))}
         return self.async_show_form(
             step_id="select_addresses",
