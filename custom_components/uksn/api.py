@@ -7,8 +7,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import aiohttp
+import hashlib
+import re
 
-from .const import BASE_URL, USER_AGENT
+from .const import BASE_URL, USER_AGENT, UKSN_VITE_APP_X
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -171,21 +173,32 @@ class UKSNClient:
     async def get_temp_token(self) -> Any:
         return await self._request("GET", "/api/m/getTempToken")
 
-    async def auth_login(
-        self,
-        phone: str,
-        password: str,
-        provider_id: str,
-        device_id: str,
-        brand_code: str,
-    ) -> Any:
+    def _phone10(phone: str) -> str:
+        digits = re.sub(r"\D", "", phone or "")
+        return digits[-10:]  # берем последние 10 цифр (обрезаем 8/+7), оставляя только 9XXXXXXXXX
+    
+    async def auth_login(self, phone: str, password: str, brand_code: str, path: str = "/") -> Any:
+        # 1) temp token
+        tt = await self.get_temp_token()
+        temp_token = None
+        if isinstance(tt, dict):
+            temp_token = tt.get("token")
+        if not temp_token:
+            raise UKSNRequestError(f"getTempToken: no token in response: {tt}")
+    
+        p10 = _phone10(phone)
+    
+        # 2) i = MD5(phone + token + VITE_APP_X)
+        raw = (p10 + str(temp_token) + UKSN_VITE_APP_X).encode("utf-8")
+        i_val = hashlib.md5(raw).hexdigest()
+    
+        # 3) login
         payload = {
-            "phone": phone,
+            "phone": p10,
             "password": password,
-            "provider_id": provider_id,
             "brand_code": brand_code,
-            "path": "/",
-            "i": device_id,
+            "path": path,
+            "i": i_val,
         }
         return await self._request("POST", "/web_api/auth/login", json=payload)
 

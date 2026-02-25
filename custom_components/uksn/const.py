@@ -14,6 +14,9 @@ DEFAULT_PROVIDER_ID = 18
 DEFAULT_BRAND_CODE = "ETALON"
 DEFAULT_DOMAIN_ID = 25
 
+# соль для вычисления i при авторизации
+UKSN_VITE_APP_X = "cboMm9Oj2qQjBMY2Hm7CU6OkfqH5gFkXtwpJ4REx4PzCs42Q5vhF/Q=="
+
 # обновление раз в час
 UPDATE_INTERVAL_SECONDS = 3600
 
