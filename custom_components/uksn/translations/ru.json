@@ -3,19 +3,13 @@
     "step": {
       "user": {
         "title": "UKSN: вход",
-        "description": "Введите телефон и параметры провайдера, затем подтвердите код из SMS.",
+        "description": "Введите телефон и пароль для входа в кабинет, затем выберите адреса для мониторинга.",	
         "data": {
           "phone": "Телефон",
+		  "password": "Пароль",
           "provider_id": "Provider ID",
           "domain_id": "Domain ID",
           "brand_code": "Brand code"
-        }
-      },
-      "code": {
-        "title": "UKSN: код",
-        "description": "Введите код подтверждения (SMS).",
-        "data": {
-          "code": "Код"
         }
       },
       "select_addresses": {

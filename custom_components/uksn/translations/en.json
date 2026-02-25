@@ -5,15 +5,10 @@
         "title": "UKSN: sign in",
         "data": {
           "phone": "Phone",
+		  "password": "Password",
           "provider_id": "Provider ID",
           "domain_id": "Domain ID",
           "brand_code": "Brand code"
-        }
-      },
-      "code": {
-        "title": "UKSN: code",
-        "data": {
-          "code": "Code"
         }
       },
       "select_addresses": {
