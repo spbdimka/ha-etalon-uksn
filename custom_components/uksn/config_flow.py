@@ -72,9 +72,8 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await client.auth_login(
                     phone=self._phone or "",
                     password=self._password or "",
-                    provider_id=str(self._provider_id),
-                    device_id=self._device_id,
                     brand_code=self._brand_code,
+                    path="/",
                 )
                 
                 _LOGGER.debug("Cookie jar after login: %s", client.dump_cookies())
