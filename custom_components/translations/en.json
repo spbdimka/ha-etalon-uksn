@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UKSN: sign in",
+        "data": {
+          "phone": "Phone",
+          "provider_id": "Provider ID",
+          "domain_id": "Domain ID",
+          "brand_code": "Brand code"
+        }
+      },
+      "code": {
+        "title": "UKSN: code",
+        "data": {
+          "code": "Code"
+        }
+      },
+      "select_addresses": {
+        "title": "UKSN: select addresses",
+        "data": {
+          "selected_addresses": "Addresses"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect.",
+      "invalid_auth": "Invalid auth."
+    }
+  }
+}

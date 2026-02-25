@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UKSN: вход",
+        "description": "Введите телефон и параметры провайдера, затем подтвердите код из SMS.",
+        "data": {
+          "phone": "Телефон",
+          "provider_id": "Provider ID",
+          "domain_id": "Domain ID",
+          "brand_code": "Brand code"
+        }
+      },
+      "code": {
+        "title": "UKSN: код",
+        "description": "Введите код подтверждения (SMS).",
+        "data": {
+          "code": "Код"
+        }
+      },
+      "select_addresses": {
+        "title": "UKSN: выбор адресов",
+        "description": "Найдено адресов: {count}. Выберите, какие мониторить.",
+        "data": {
+          "selected_addresses": "Адреса"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Не удалось подключиться.",
+      "invalid_auth": "Неверный код/ошибка авторизации."
+    }
+  }
+}
