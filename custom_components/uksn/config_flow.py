@@ -65,9 +65,6 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._client = client
 
             try:
-                # стартуем сессию
-                await client.get_temp_token()
-
                 # логин: для кабинета пароль уходит в поле "password" этого эндпоинта
                 await client.auth_login(
                     phone=self._phone or "",
