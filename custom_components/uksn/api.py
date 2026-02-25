@@ -46,6 +46,8 @@ class UKSNClient:
         last_exc: Exception | None = None
         for attempt in range(1, 4):
             try:
+                _LOGGER.debug("HTTP %s %s params=%s json_keys=%s",
+                    method, url, params, list(json.keys()) if isinstance(json, dict) else ("list" if isinstance(json, list) else None))
                 async with self.session.request(
                     method,
                     url,
@@ -54,6 +56,7 @@ class UKSNClient:
                     headers=hdrs,
                     timeout=aiohttp.ClientTimeout(total=timeout),
                 ) as resp:
+                    _LOGGER.debug("HTTP %s %s -> %s (%s)", method, url, resp.status, resp.headers.get("Content-Type"))
                     if resp.status in (401, 403):
                         raise UKSNAuthError(f"Auth failed: {resp.status}")
 
@@ -64,7 +67,11 @@ class UKSNClient:
                     # иногда API может вернуть текст/HTML на ошибках
                     text = await resp.text()
                     if resp.status >= 400:
-                        raise UKSNRequestError(f"{resp.status}: {text[:300]}")
+                        body = await resp.text()
+                        _LOGGER.debug("HTTP error body (first 1000 chars): %s", body[:1000])
+                        if resp.status in (401, 403):
+                            raise UKSNAuthError(f"{resp.status}: {body[:200]}")
+                        raise UKSNRequestError(f"{resp.status}: {body[:200]}")
                     return text
             except (aiohttp.ClientError, asyncio.TimeoutError, UKSNRequestError, UKSNAuthError) as e:
                 last_exc = e

@@ -24,6 +24,8 @@ from .const import (
     DEFAULT_PROVIDER_ID,
 )
 
+import logging
+_LOGGER = logging.getLogger(__name__)
 
 def _mk_device_id() -> str:
     # поле "i" выглядит как 32 hex
@@ -69,9 +71,11 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return await self.async_step_select_addresses()
 
-            except UKSNAuthError:
+            except UKSNAuthError as err:
+                _LOGGER.warning("Auth error: %s", err)
                 errors["base"] = "invalid_auth"
-            except Exception:
+            except Exception as err:
+                _LOGGER.exception("Login failed: %s", err)
                 errors["base"] = "cannot_connect"
 
         schema = vol.Schema(
