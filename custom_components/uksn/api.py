@@ -84,7 +84,25 @@ class UKSNClient:
 
     async def get_temp_token(self) -> Any:
         return await self._request("GET", "/api/m/getTempToken")
-
+    
+    async def auth_login(
+        self,
+        phone: str,
+        password: str,
+        provider_id: str,
+        device_id: str,
+        brand_code: str,
+    ) -> Any:
+        payload = {
+            "phone": phone,
+            "password": password,
+            "provider_id": provider_id,
+            "brand_code": brand_code,
+            "path": "/",
+            "i": device_id,
+        }
+        return await self._request("POST", "/web_api/auth/login", json=payload)
+    
     async def auth_phone(self, phone: str, provider_id: str, device_id: str) -> Any:
         # тело ровно как у тебя в HAR: phone/provider_id/i
         payload = {"phone": phone, "provider_id": provider_id, "i": device_id}

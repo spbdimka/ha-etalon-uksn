@@ -67,7 +67,13 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await client.get_temp_token()
 
                 # логин: для кабинета пароль уходит в поле "password" этого эндпоинта
-                await client.auth_confirm(self._phone or "", self._password or "", self._brand_code)
+                await client.auth_login(
+                    phone=self._phone or "",
+                    password=self._password or "",
+                    provider_id=str(self._provider_id),
+                    device_id=self._device_id,
+                    brand_code=self._brand_code,
+                )
 
                 return await self.async_step_select_addresses()
 
