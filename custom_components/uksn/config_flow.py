@@ -42,6 +42,7 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
+        self._client: UKSNClient | None = None
         self._phone: str | None = None
         self._password: str | None = None
         self._provider_id: str | None = None
@@ -61,6 +62,7 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             session = async_get_clientsession(self.hass)
             client = UKSNClient(session=session)
+            self._client = client
 
             try:
                 # стартуем сессию
@@ -74,7 +76,9 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     device_id=self._device_id,
                     brand_code=self._brand_code,
                 )
-
+                
+                _LOGGER.debug("Cookie jar after login: %s", client.dump_cookies())
+                
                 return await self.async_step_select_addresses()
 
             except UKSNAuthError as err:
@@ -100,7 +104,8 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         try:
-            addresses = await _fetch_addresses(self.hass, self._domain_id)
+            client = self._client or UKSNClient(session=async_get_clientsession(self.hass))
+            addresses = await client.get_addresses(self._domain_id)
         except Exception:
             addresses = []
             errors["base"] = "cannot_connect"
