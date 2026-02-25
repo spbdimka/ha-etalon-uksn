@@ -41,6 +41,9 @@ def _redact_payload(payload: Any) -> Any:
         return payload
     return payload
 
+def _phone10(phone: str) -> str:
+    digits = re.sub(r"\D", "", phone or "")
+    return digits[-10:]  # берем последние 10 цифр (обрезаем 8/+7), оставляя только 9XXXXXXXXX
 
 @dataclass
 class UKSNClient:
@@ -173,10 +176,6 @@ class UKSNClient:
     async def get_temp_token(self) -> Any:
         return await self._request("GET", "/api/m/getTempToken")
 
-    def _phone10(phone: str) -> str:
-        digits = re.sub(r"\D", "", phone or "")
-        return digits[-10:]  # берем последние 10 цифр (обрезаем 8/+7), оставляя только 9XXXXXXXXX
-    
     async def auth_login(self, phone: str, password: str, brand_code: str, path: str = "/") -> Any:
         # 1) temp token
         tt = await self.get_temp_token()
