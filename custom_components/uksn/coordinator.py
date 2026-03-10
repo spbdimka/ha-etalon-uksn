@@ -19,7 +19,6 @@ class UKSNCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         hass: HomeAssistant,
         client: UKSNClient,
         selected_addresses: list[int],
-        domain_id: int,
     ) -> None:
         super().__init__(
             hass,
@@ -29,7 +28,6 @@ class UKSNCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.selected_addresses = selected_addresses
-        self.domain_id = domain_id
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
