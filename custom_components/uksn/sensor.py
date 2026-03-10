@@ -3,18 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
 from .coordinator import UKSNCoordinator
+from .entity_base import device_info_for_address
 
 
 def _counter_name(counter: dict[str, Any]) -> str:
-    # service_str + factory_num обычно достаточно читабельно
     svc = (counter.get("service_str") or "").strip()
     fn = (counter.get("factory_num") or "").strip()
     if svc and fn:
@@ -23,29 +19,17 @@ def _counter_name(counter: dict[str, Any]) -> str:
 
 
 def _counter_value(counter: dict[str, Any]) -> Any:
-    # берем current_val, иначе last_val
     v = counter.get("current_val")
     if v is None:
         v = counter.get("last_val")
     return v
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    data = hass.data[DOMAIN][entry.entry_id]
-    coordinator: UKSNCoordinator = data["coordinator"]
-
-    entities: list[SensorEntity] = []
-
-    # создаём сущности по данным первого refresh
-    counters_by_address = coordinator.data.get("counters_by_address", {})
-    for address_id, counters in counters_by_address.items():
-        for c in counters:
-            counter_id = str(c.get("counter_id"))
-            if not counter_id:
-                continue
-            entities.append(UKSNCounterSensor(coordinator, address_id=str(address_id), counter_id=counter_id))
-
-    async_add_entities(entities)
+def _first_gku_bill(bills: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for b in bills or []:
+        if str(b.get("_typeId")) == "1":  # ЖКУ
+            return b
+    return bills[0] if bills else None
 
 
 @dataclass(frozen=True)
@@ -63,6 +47,10 @@ class UKSNCounterSensor(CoordinatorEntity[UKSNCoordinator], SensorEntity):
         self._attr_unique_id = f"uksn_counter_{counter_id}"
         self._attr_name = f"Счётчик {counter_id}"
 
+    @property
+    def device_info(self):
+        return device_info_for_address(self.coordinator, self._key.address_id)
+
     def _find_counter(self) -> dict[str, Any] | None:
         counters = self.coordinator.data.get("counters_by_address", {}).get(self._key.address_id, [])
         for c in counters:
@@ -75,6 +63,11 @@ class UKSNCounterSensor(CoordinatorEntity[UKSNCoordinator], SensorEntity):
         return super().available and self._find_counter() is not None
 
     @property
+    def name(self) -> str:
+        c = self._find_counter()
+        return _counter_name(c) if c else super().name
+
+    @property
     def native_value(self) -> Any:
         c = self._find_counter()
         if not c:
@@ -84,7 +77,6 @@ class UKSNCounterSensor(CoordinatorEntity[UKSNCoordinator], SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         c = self._find_counter() or {}
-        # сюда уже складываем “паспортные” поля из списка /counter/{address}
         return {
             "address_id": self._key.address_id,
             "counter_id": self._key.counter_id,
@@ -100,9 +92,100 @@ class UKSNCounterSensor(CoordinatorEntity[UKSNCoordinator], SensorEntity):
             "last_val_date": c.get("last_val_date"),
         }
 
+
+class _UKSNBillBase(CoordinatorEntity[UKSNCoordinator], SensorEntity):
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "RUB"
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: UKSNCoordinator, address_id: str) -> None:
+        super().__init__(coordinator)
+        self.address_id = address_id
+
     @property
-    def name(self) -> str:
-        c = self._find_counter()
-        if c:
-            return _counter_name(c)
-        return super().name
+    def device_info(self):
+        return device_info_for_address(self.coordinator, self.address_id)
+
+    def _bill(self) -> dict[str, Any] | None:
+        bills = self.coordinator.data.get("bills_by_address", {}).get(self.address_id, [])
+        return _first_gku_bill(bills)
+
+
+class UKSNMonthlyChargeSensor(_UKSNBillBase):
+    def __init__(self, coordinator: UKSNCoordinator, address_id: str) -> None:
+        super().__init__(coordinator, address_id)
+        self._attr_unique_id = f"uksn_bill_calc_{address_id}"
+        self._attr_name = "Счёт за месяц"
+
+    @property
+    def native_value(self):
+        b = self._bill() or {}
+        v = b.get("calc_amount")
+        try:
+            return float(v) if v is not None else None
+        except Exception:
+            return None
+
+    @property
+    def extra_state_attributes(self):
+        b = self._bill() or {}
+        return {
+            "bill_id": b.get("bill_id"),
+            "month_str": b.get("month_str"),
+            "bill_pay_date_str": b.get("bill_pay_date_str"),
+            "account_num": b.get("account_num"),
+            "aba_id": b.get("aba_id"),
+            "address": b.get("_address"),
+        }
+
+
+class UKSNDebtSensor(_UKSNBillBase):
+    def __init__(self, coordinator: UKSNCoordinator, address_id: str) -> None:
+        super().__init__(coordinator, address_id)
+        self._attr_unique_id = f"uksn_bill_total_{address_id}"
+        self._attr_name = "Задолженность"
+
+    @property
+    def native_value(self):
+        b = self._bill() or {}
+        v = b.get("total_amount")
+        try:
+            return float(v) if v is not None else None
+        except Exception:
+            return None
+
+    @property
+    def extra_state_attributes(self):
+        b = self._bill() or {}
+        return {
+            "bill_id": b.get("bill_id"),
+            "month_str": b.get("month_str"),
+            "start_amount": b.get("start_amount"),
+            "pay_amount": b.get("pay_amount"),
+            "calc_amount": b.get("calc_amount"),
+            "account_num": b.get("account_num"),
+            "aba_id": b.get("aba_id"),
+            "address": b.get("_address"),
+        }
+
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    data = hass.data["uksn"][entry.entry_id]
+    coordinator: UKSNCoordinator = data["coordinator"]
+
+    entities = []
+    # bill sensors per address
+    for address_id in coordinator.data.get("counters_by_address", {}).keys():
+        entities.append(UKSNMonthlyChargeSensor(coordinator, str(address_id)))
+        entities.append(UKSNDebtSensor(coordinator, str(address_id)))
+
+    # counter sensors
+    counters_by_address = coordinator.data.get("counters_by_address", {})
+    for address_id, counters in counters_by_address.items():
+        for c in counters:
+            cid = str(c.get("counter_id"))
+            if not cid:
+                continue
+            entities.append(UKSNCounterSensor(coordinator, str(address_id), cid))
+
+    async_add_entities(entities)

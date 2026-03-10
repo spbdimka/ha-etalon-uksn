@@ -5,7 +5,7 @@
         "title": "UKSN: sign in",
         "data": {
           "phone": "Phone",
-		  "password": "Password",
+          "password": "Password",
           "provider_id": "Provider ID",
           "domain_id": "Domain ID",
           "brand_code": "Brand code"
@@ -20,8 +20,8 @@
     },
     "error": {
       "cannot_connect": "Cannot connect.",
-      "invalid_auth": "Invalid auth.",
-	  "no_addresses": "No addresses found for this account"
+      "invalid_auth": "Invalid auth or session token missing.",
+      "no_addresses": "No addresses found."
     }
   }
 }

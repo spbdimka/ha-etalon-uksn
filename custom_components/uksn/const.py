@@ -7,18 +7,18 @@ CONF_PASSWORD = "password"
 CONF_PROVIDER_ID = "provider_id"
 CONF_DOMAIN_ID = "domain_id"
 CONF_BRAND_CODE = "brand_code"
-CONF_DEVICE_ID = "device_id"
 CONF_SELECTED_ADDRESSES = "selected_addresses"
 
-DEFAULT_PROVIDER_ID = 18
+CONF_AUTH_TOKEN = "auth_token"
+CONF_VITE_APP_X = "vite_app_x"
+
 DEFAULT_BRAND_CODE = "ETALON"
 DEFAULT_DOMAIN_ID = 25
+DEFAULT_PROVIDER_ID = 18
 
-# соль для вычисления i при авторизации
-UKSN_VITE_APP_X = "cboMm9Oj2qQjBMY2Hm7CU6OkfqH5gFkXtwpJ4REx4PzCs42Q5vhF/Q=="
-
-# обновление раз в час
-UPDATE_INTERVAL_SECONDS = 3600
+UPDATE_INTERVAL_SECONDS = 60 * 60  # раз в час
 
 BASE_URL = "https://cab.uksn.ru"
-USER_AGENT = "HomeAssistant-UKSN/0.1"
+USER_AGENT = "HomeAssistant-UKSN/0.3"
+
+SERVICE_REAUTH = "reauth"
