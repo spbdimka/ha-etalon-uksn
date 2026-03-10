@@ -12,11 +12,9 @@ from .const import (
     CONF_PHONE,
     CONF_PASSWORD,
     CONF_BRAND_CODE,
-    CONF_DOMAIN_ID,
     CONF_AUTH_TOKEN,
     CONF_VITE_APP_X,
     SERVICE_REAUTH,
-    DEFAULT_DOMAIN_ID,
 )
 from .coordinator import UKSNCoordinator
 
@@ -44,13 +42,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         client.vite_app_x = vite_x
 
     selected = entry.data.get("selected_addresses", [])
-    domain_id = int(entry.data.get(CONF_DOMAIN_ID, DEFAULT_DOMAIN_ID))
 
     coordinator = UKSNCoordinator(
         hass=hass,
         client=client,
         selected_addresses=[int(x) for x in selected],
-        domain_id=domain_id,
     )
 
     hass.data.setdefault(DOMAIN, {})

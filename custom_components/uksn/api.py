@@ -285,7 +285,7 @@ class UKSNClient:
         return resp
 
     async def get_addresses(self, domain_id: int) -> list[dict[str, Any]]:
-        data = await self._request("GET", "/api/m/account/address", params={"domain_id": str(domain_id)})
+        data = await self._request("GET", "/api/m/account/address")
         if isinstance(data, list):
             return data
         if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):

@@ -15,13 +15,11 @@ from .const import (
     CONF_PHONE,
     CONF_PASSWORD,
     CONF_PROVIDER_ID,
-    CONF_DOMAIN_ID,
     CONF_BRAND_CODE,
     CONF_SELECTED_ADDRESSES,
     CONF_AUTH_TOKEN,
     CONF_VITE_APP_X,
     DEFAULT_PROVIDER_ID,
-    DEFAULT_DOMAIN_ID,
     DEFAULT_BRAND_CODE,
 )
 
@@ -35,7 +33,6 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._phone: str | None = None
         self._password: str | None = None
         self._provider_id: str | None = None
-        self._domain_id: int = DEFAULT_DOMAIN_ID
         self._brand_code: str = DEFAULT_BRAND_CODE
         self._client: UKSNClient | None = None
 
@@ -47,7 +44,6 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_PHONE): str,
                 vol.Required(CONF_PASSWORD): str,
                 vol.Optional(CONF_PROVIDER_ID, default=DEFAULT_PROVIDER_ID): int,
-                vol.Optional(CONF_DOMAIN_ID, default=DEFAULT_DOMAIN_ID): int,
                 vol.Optional(CONF_BRAND_CODE, default=DEFAULT_BRAND_CODE): str,
             }
         )
@@ -56,7 +52,6 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._phone = user_input[CONF_PHONE]
             self._password = user_input[CONF_PASSWORD]
             self._provider_id = str(user_input.get(CONF_PROVIDER_ID, DEFAULT_PROVIDER_ID))
-            self._domain_id = int(user_input.get(CONF_DOMAIN_ID, DEFAULT_DOMAIN_ID))
             self._brand_code = (user_input.get(CONF_BRAND_CODE, DEFAULT_BRAND_CODE) or DEFAULT_BRAND_CODE).strip()
 
             session = async_get_clientsession(self.hass)
@@ -66,12 +61,14 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             client.brand_code = self._brand_code
 
             try:
-                _LOGGER.debug("STEP user: login start phone=%s domain_id=%s brand=%s", self._phone, self._domain_id, self._brand_code)
+                _LOGGER.debug("STEP user: login start phone=%s brand=%s", self._phone, self._brand_code)
                 resp = await client.auth_login(self._phone, self._password, self._brand_code)
                 _LOGGER.debug("STEP user: auth_login resp=%s", resp)
-                _LOGGER.debug("STEP user: auth_token=%s vite_x=%s",
-                              "present" if client.auth_token else "missing",
-                              "present" if client.vite_app_x else "missing")
+                _LOGGER.debug(
+                    "STEP user: auth_token=%s vite_x=%s",
+                    "present" if client.auth_token else "missing",
+                    "present" if client.vite_app_x else "missing",
+                )
 
                 if not client.auth_token:
                     errors["base"] = "invalid_auth"
@@ -97,8 +94,8 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         try:
-            _LOGGER.debug("STEP addresses: fetch start domain_id=%s", self._domain_id)
-            addresses = await client.get_addresses(self._domain_id)
+            _LOGGER.debug("STEP addresses: fetch start")
+            addresses = await client.get_addresses()
             _LOGGER.debug("STEP addresses: fetched %d", len(addresses))
         except UKSNAuthError as err:
             _LOGGER.warning("STEP addresses: unauthorized (back to user): %s", err)
@@ -122,7 +119,7 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input:
             selected_raw = user_input.get(CONF_SELECTED_ADDRESSES, {})
 
-            # HA может вернуть либо dict {key: bool}, либо list [key, key, ...]
+            # multi_select может вернуть dict или list — поддерживаем оба
             if isinstance(selected_raw, dict):
                 selected_keys = [k for k, v in selected_raw.items() if v]
             elif isinstance(selected_raw, list):
@@ -137,7 +134,6 @@ class UKSNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_PHONE: self._phone,
                 CONF_PASSWORD: self._password,
                 CONF_PROVIDER_ID: self._provider_id,
-                CONF_DOMAIN_ID: self._domain_id,
                 CONF_BRAND_CODE: self._brand_code,
                 CONF_SELECTED_ADDRESSES: selected,
                 CONF_AUTH_TOKEN: client.auth_token,

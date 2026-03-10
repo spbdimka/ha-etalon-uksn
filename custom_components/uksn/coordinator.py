@@ -40,7 +40,7 @@ class UKSNCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
 
             # Addresses
-            addresses = await self.client.get_addresses(self.domain_id)
+            addresses = await self.client.get_addresses()
             for a in addresses:
                 aid = a.get("address_id") or a.get("id")
                 if aid is not None:
