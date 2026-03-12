@@ -6,7 +6,7 @@ fetch_invoice_history:
   name: Загрузить историю квитанций
   description: Загружает PDF-квитанции по месяцам назад, парсит их и сохраняет историю в Store.
   fields:
-    entry_id:
+    config_entry_id:
       name: Entry ID
       description: Необязательно. Если указать, сервис выполнится только для конкретного config entry.
       example: "abcd1234efgh5678"
