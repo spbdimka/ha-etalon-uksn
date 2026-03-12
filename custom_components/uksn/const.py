@@ -20,3 +20,10 @@ BASE_URL = "https://cab.uksn.ru"
 USER_AGENT = "HomeAssistant-UKSN/0.3"
 
 SERVICE_REAUTH = "reauth"
+SERVICE_FETCH_INVOICE_HISTORY = "fetch_invoice_history"
+
+DEFAULT_HISTORY_MAX_MONTHS = 120
+HISTORY_STOP_AFTER_ERRORS = 2
+
+STORAGE_VERSION = 1
+STORAGE_KEY_PREFIX = f"{DOMAIN}_invoice_history"

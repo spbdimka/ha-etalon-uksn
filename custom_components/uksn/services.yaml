@@ -1,0 +1,30 @@
+reauth:
+  name: Переавторизация
+  description: Повторно авторизоваться в UKSN и обновить данные.
+
+fetch_invoice_history:
+  name: Загрузить историю квитанций
+  description: Загружает PDF-квитанции по месяцам назад, парсит их и сохраняет историю в Store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Необязательно. Если указать, сервис выполнится только для конкретного config entry.
+      example: "abcd1234efgh5678"
+      selector:
+        text:
+    address_id:
+      name: Address ID
+      description: Необязательно. Если указать, история загрузится только для одного адреса.
+      example: "538297"
+      selector:
+        text:
+    max_months:
+      name: Максимум месяцев
+      description: Необязательно. Лимит глубины истории для загрузки. Удобно для тестов.
+      example: 3
+      default: 120
+      selector:
+        number:
+          min: 1
+          max: 240
+          mode: box

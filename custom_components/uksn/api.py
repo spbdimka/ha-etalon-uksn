@@ -15,14 +15,11 @@ from .const import BASE_URL, USER_AGENT
 
 _LOGGER = logging.getLogger(__name__)
 
-# Дамп HTTP (можешь включить на время)
 DUMP_HTTP = False
 DUMP_BODY_LIMIT = 2000
 
 _AUTH_TOKEN_RE = re.compile(r"auth_Token=([^;]+)")
 RE_VITE_APP_X = re.compile(r"""VITE_APP_X["']?\s*:\s*["'](?P<x>[^"']+)["']""")
-
-# ВАЖНО: entry js у тебя живёт в ./static/index-XXXX.js
 RE_ENTRY_JS = re.compile(
     r"""<script[^>]+src=["'](?P<src>[^"']*(?:\./)?static/index-[^"']+\.js)["']""",
     re.IGNORECASE,
@@ -66,16 +63,9 @@ def _phone10(phone: str) -> str:
 
 
 def _normalize_js_path(src: str) -> str:
-    """
-    Нормализация путей:
-      ./static/index-xxx.js -> /static/index-xxx.js
-      static/index-xxx.js   -> /static/index-xxx.js
-      /static/index-xxx.js  -> /static/index-xxx.js
-    """
     s = (src or "").strip()
-    # часто бывает './static/...'
     if s.startswith("./"):
-        s = s[1:]  # './static/..' -> '/static/..'
+        s = s[1:]
     if not s.startswith("/"):
         s = "/" + s
     return s
@@ -95,12 +85,10 @@ class UKSNClient:
     vite_app_x_fetched_at: datetime | None = None
 
     async def fetch_vite_app_x(self, force: bool = False) -> str | None:
-        # кэш на сутки
         if not force and self.vite_app_x and self.vite_app_x_fetched_at:
             if datetime.utcnow() - self.vite_app_x_fetched_at < timedelta(days=1):
                 return self.vite_app_x
 
-        # чаще всего SPA index находится на "/"
         html = await self._request_once("GET", "/", headers={"Accept": "text/html, */*"})
         if not isinstance(html, str):
             try:
@@ -109,7 +97,6 @@ class UKSNClient:
                 _LOGGER.debug("fetch_vite_app_x: cannot decode html")
                 return self.vite_app_x
 
-        # 1) иногда VITE_APP_X может быть прямо в HTML
         m0 = RE_VITE_APP_X.search(html)
         if m0:
             self.vite_app_x = m0.group("x")
@@ -117,7 +104,6 @@ class UKSNClient:
             _LOGGER.info("Fetched VITE_APP_X from HTML (len=%d)", len(self.vite_app_x))
             return self.vite_app_x
 
-        # 2) ищем entry js: <script type="module" ... src="./static/index-....js">
         m = RE_ENTRY_JS.search(html)
         if not m:
             _LOGGER.debug("fetch_vite_app_x: entry js not found in HTML head=%s", _truncate(html, 800))
@@ -143,7 +129,6 @@ class UKSNClient:
         return self.vite_app_x
 
     async def _request(self, method: str, path: str, *, params: dict[str, Any] | None = None, json: Any | None = None) -> Any:
-        # wrapper: auto reauth once
         try:
             return await self._request_once(method, path, params=params, json=json)
         except UKSNAuthError as e:
@@ -242,6 +227,39 @@ class UKSNClient:
 
         raise UKSNRequestError(f"Request failed: {last_exc}")
 
+    async def _request_bytes_once(
+        self,
+        method: str,
+        full_url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        timeout: int = 60,
+    ) -> bytes:
+        hdrs: dict[str, str] = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/pdf, application/octet-stream, */*",
+        }
+
+        if self.auth_token:
+            hdrs["Cookie"] = f"auth_Token={self.auth_token}"
+
+        if headers:
+            hdrs.update(headers)
+
+        async with self.session.request(
+            method,
+            full_url,
+            headers=hdrs,
+            timeout=aiohttp.ClientTimeout(total=timeout),
+        ) as resp:
+            raw = await resp.read()
+            if resp.status >= 400:
+                text = raw.decode("utf-8", errors="replace") if raw else ""
+                if resp.status in (401, 403):
+                    raise UKSNAuthError(f"{resp.status}: {_truncate(text, 200)}")
+                raise UKSNRequestError(f"{resp.status}: {_truncate(text, 200)}")
+            return raw
+
     async def get_temp_token(self) -> dict[str, Any]:
         data = await self._request_once("GET", "/api/m/getTempToken")
         if not isinstance(data, dict):
@@ -307,6 +325,36 @@ class UKSNClient:
         if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
             return data["data"]
         raise UKSNRequestError("Unexpected bill detail response shape")
+
+    async def get_invoice_pdf_meta(self, aba_id: str | int, month: int, year: int) -> dict[str, Any]:
+        data = await self._request(
+            "GET",
+            f"/api/m/account/address/billacc/{aba_id}/invoice",
+            params={
+                "mounth": month,
+                "year": year,
+                "extra_data": 1,
+                "downloadFile": "N",
+            },
+        )
+        if isinstance(data, dict):
+            return data
+        raise UKSNRequestError(f"Unexpected invoice meta response shape: {type(data)!r}")
+
+    async def download_pdf_bytes(self, url: str) -> bytes:
+        _LOGGER.debug("Downloading PDF from url=%s", url)
+        try:
+            data = await self._request_bytes_once("GET", url)
+            _LOGGER.debug("Downloaded PDF bytes=%s from url=%s", len(data) if data else 0, url)
+            return data
+        except UKSNAuthError:
+            if self.phone and self.password and self.brand_code:
+                _LOGGER.warning("Unauthorized on PDF download. Trying re-auth...")
+                await self.auth_login(self.phone, self.password, self.brand_code, force_vite_refresh=False)
+                data = await self._request_bytes_once("GET", url)
+                _LOGGER.debug("Downloaded PDF after reauth bytes=%s from url=%s", len(data) if data else 0, url)
+                return data
+            raise
 
     async def set_counter_value(self, counter_id: str, value: str) -> Any:
         payload = [{"counter_id": str(counter_id), "current_val": str(value)}]
